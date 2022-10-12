@@ -34,7 +34,7 @@ export class JsonViewer {
     });
 
     for (const [key, value] of Object.entries(object)) {
-      const type = getTypeOfValue(value);
+      const type = getTypeOfValue(getValueOrInput(value));
       const rowNode = NodeGen.createNode({
         nodeName: "div",
         classes: ["node"],
@@ -56,14 +56,12 @@ export class JsonViewer {
       const valueNodeOptions: createNodeOptions = {
         nodeName: "div",
         content: `${value}`,
-        // classes: ["value"],
       };
 
-      // not strict null check
       if (type === "null") {
         valueNodeOptions.dataProps = { "data-type": "null" };
       } else if (type === "array") {
-        valueNodeOptions.content = `[${value}]`;
+        valueNodeOptions.content = JSON.stringify(getValueOrInput(value));
         valueNodeOptions.dataProps = { "data-type": "array" };
       } else if (type === "object") {
         const nodes = this.generate(value);
@@ -142,6 +140,7 @@ export class JsonViewer {
     if (target.value === "delete") {
       this.target.remove();
     }
+
     if (target.value === "change") {
       if (oldType === "object") {
         const newNode = NodeGen.createNode({
@@ -157,15 +156,23 @@ export class JsonViewer {
       valueNode.dataset.type = "string";
       valueNode.focus();
     }
+
     if (target.value === "add") {
       const result = prompt("Input new value", "name: value");
-      const newValue = result?.split(":");
 
-      if (newValue) {
-        const nodes = this.generate(Object.fromEntries([newValue]));
-        this.target.after(nodes.children[0]);
-      } else {
-        alert("input valid value");
+      if (result) {
+        try {
+          // приводим значение к обьекту
+          const normalizedInput = getValueOrInput(`{${result}}`);
+          if (getTypeOfValue(normalizedInput) !== "object") {
+            throw new Error("input valid value");
+          }
+
+          const nodes = this.generate(normalizedInput);
+          this.target.after(nodes.children[0]);
+        } catch (error) {
+          alert(error);
+        }
       }
     }
 
