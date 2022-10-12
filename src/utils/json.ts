@@ -1,3 +1,18 @@
+declare global {
+  interface Array<T> {
+    toJsonString(arr: T): string;
+  }
+  interface ArrayConstructor {
+    toJsonString(arr: any[]): string;
+  }
+}
+
+Object.defineProperty(Array.prototype, "toJsonString", {
+  value: function (): string {
+    return `[${this}]`;
+  },
+});
+
 interface SelectOption {
   name: string;
   value: string;
@@ -35,7 +50,7 @@ export class JsonViewer {
     });
 
     for (const [key, value] of Object.entries(object)) {
-      const type = typeof value;
+      const type = getTypeOfValue(value);
       const rowNode = NodeGen.createNode({
         nodeName: "div",
         classes: ["node"],
@@ -61,9 +76,10 @@ export class JsonViewer {
       };
 
       // not strict null check
-      if (!value && type === "object") {
+      if (type === "null") {
         valueNodeOptions.dataProps = { "data-type": "null" };
-      } else if (Array.isArray(value)) {
+      } else if (type === "array") {
+        valueNodeOptions.content = `[${value}]`;
         valueNodeOptions.dataProps = { "data-type": "array" };
       } else if (type === "object") {
         const nodes = this.generate(value);
@@ -108,57 +124,71 @@ export class JsonViewer {
     }
   }
 
-  private focusOutHandler(e: Event) {
+  private focusOutHandler(e: FocusEvent) {
     const target = e.target as HTMLElement;
     if (target.tagName === "SELECT") return;
 
-    const type = target.dataset.type;
-    const tempValue = (target.textContent || "").trim();
-    let newValue, newType;
+    const tempValue = target.textContent || "";
+    // пустую строку приводим к null
+    let newValue = tempValue !== "" ? getValueOrInput(tempValue) : null;
+    const newType = getTypeOfValue(newValue);
 
-    console.log("tempValue", tempValue);
-    if (tempValue && type === "object") {
-      newValue = strToObj(tempValue);
-      if (newValue && typeof newValue === "object") {
-        const nodes = this.generate(newValue);
-        nodes.classList.add("hide");
-        nodes.dataset.type = "object";
-        target.replaceWith(nodes);
-      } else {
-        alert("input valid object");
-        newValue = tempValue;
-        newType = "string";
-      }
+    if (newType === "boolean") {
+      target.removeAttribute("contenteditable");
+    }
+
+    if (newType === "object") {
+      const nodes = this.generate(newValue);
+      nodes.classList.add("hide");
+      nodes.dataset.type = "object";
+      target.replaceWith(nodes);
+      return;
     }
     // обрабатываем array
-    else if (type === "array") {
-      newValue = getArrayOrError(tempValue);
-      newType = type;
-    }
-    // обрабатываем string, number
-    else {
-      newValue = getValueOrString(tempValue);
-      newType = typeof newValue;
+    else if (newType === "array") {
+      newValue = JSON.stringify(getValueOrInput(tempValue));
     }
 
     // обрабатываем null
-    if (!newValue) {
+    if (newType === "null") {
       newValue = "null";
-      newType = "null";
     }
-    console.log("newValue", newValue);
 
     target.dataset.type = newType;
     target.textContent = newValue;
   }
 
   private selectHandler(e: Event) {
-    const t = e.target as HTMLSelectElement;
+    const target = e.target as HTMLSelectElement;
+    const valueNode = this.target.querySelector(
+      "[data-type]"
+    ) as HTMLDivElement;
+    const oldType = valueNode.dataset.type;
 
-    if (t.value === "delete") {
+    console.log("oldType", oldType);
+    if (oldType === "boolean") {
+      valueNode.setAttribute("contenteditable", "true");
+    }
+
+    if (target.value === "delete") {
       this.target.remove();
     }
-    if (t.value === "add") {
+    if (target.value === "change") {
+      if (oldType === "object") {
+        const newNode = NodeGen.createNode({
+          nodeName: "div",
+          dataProps: { "data-type": "string" },
+          content: "input value",
+        });
+        newNode.setAttribute("contenteditable", "true");
+        valueNode.replaceWith(newNode);
+        newNode.focus();
+      }
+
+      valueNode.dataset.type = "string";
+      valueNode.focus();
+    }
+    if (target.value === "add") {
       const result = prompt("Input new value", "name: value");
       const newValue = result?.split(":");
 
@@ -170,60 +200,12 @@ export class JsonViewer {
       }
     }
 
-    const valueNode = this.target.querySelector("[data-type]");
-
-    if (t.value !== "boolean") {
-      valueNode.setAttribute("contenteditable", "true");
-    } else {
-      valueNode.removeAttribute("contenteditable");
-    }
-
-    if (t.value === "array") {
-      const oldType = valueNode.dataset.type;
-
-      if (oldType === "object") {
-        const newNode = NodeGen.createNode({
-          nodeName: "div",
-          classes: ["node"],
-          dataProps: { "data-type": "array" },
-        });
-        newNode.setAttribute("contenteditable", "true");
-
-        valueNode.replaceWith(newNode);
-        newNode.focus();
-      } else {
-        valueNode.dataset.type = "array";
-      }
-    }
-    if (t.value === "object") {
-      valueNode.dataset.type = "object";
-      valueNode.focus();
-    }
-    if (t.value === "string") {
-      // исключаем null, поскольку String(null) будет 'null', и мы хотим этого добиться
-      if (valueNode.dataset.type === "object") {
-        valueNode.textContent = getValueOrString(valueNode.textContent);
-      }
-      valueNode.dataset.type = "string";
-    }
-    if (t.value === "number") {
-      valueNode.dataset.type = "number";
-      const newValue = Number(getValueOrString(valueNode.textContent));
-      valueNode.textContent = String(Number.isNaN(newValue) ? 0 : newValue);
-    }
-    if (t.value === "boolean") {
-      valueNode.dataset.type = "boolean";
-      valueNode.textContent = String(
-        !!getValueOrString(valueNode.textContent || "")
-      );
-    }
-
     this.select.remove();
   }
 
   private clickHandler(e: Event) {
     const target = e.target as HTMLElement;
-    // toggle node view
+    // переключение видимости обьекта (свернуть/развернуть)
     if (target.dataset.type === "object") {
       target.classList.toggle("hide");
       return;
@@ -231,10 +213,14 @@ export class JsonViewer {
 
     // обрабатываем boolean
     if (target.dataset.type === "boolean") {
-      target.textContent = String(!getValueOrString(target.textContent || ""));
+      if (target.textContent) {
+        console.log(getValueOrInput(target.textContent));
+        target.textContent = String(!getValueOrInput(target.textContent));
+      }
       return;
     }
 
+    // Показать контекстное меню
     if (target.hasAttribute("data-property")) {
       const select = this.jsonViewer.querySelector("select");
       if (select) select.remove();
@@ -254,29 +240,8 @@ export class JsonViewer {
         value: "",
       },
       {
-        label: "изменить тип",
-        options: [
-          {
-            name: "array",
-            value: "array",
-          },
-          {
-            name: "object",
-            value: "object",
-          },
-          {
-            name: "number",
-            value: "number",
-          },
-          {
-            name: "string",
-            value: "string",
-          },
-          {
-            name: "boolean",
-            value: "boolean",
-          },
-        ],
+        name: "изменить",
+        value: "change",
       },
       {
         name: "удалить",
@@ -344,36 +309,30 @@ export class JsonViewer {
   }
 }
 
-function getValueOrString(value: string) {
+// Поскольку мы принимает от пользователя данные в виде строки, приводим эту строку к валидному JSON
+export function stringToJson(str: string): string {
+  // ищем все строки, могут начинаться с ' или "
+  const result = str.replace(/[a-z"'/]+/gim, (str: string) => {
+    // если строка начинается с " или включает false / true / null, возвращаем как есть
+    if (str.startsWith('"') || ["false", "true", "null"].includes(str)) {
+      return str;
+    }
+    // если строка начинается с ', например 'sdf' заменяем кавычки на корректные для json
+    else if (str.startsWith("'")) {
+      return `"${str.slice(1, -1)}"`;
+    }
+    // все остальные строки оборачиваем в ""
+    return `"${str}"`;
+  });
+
+  return result;
+}
+
+function getValueOrInput(value: string) {
   try {
-    return JSON.parse(value);
+    return JSON.parse(stringToJson(value));
   } catch (error) {
     return value;
-  }
-}
-
-// todo: need deep
-// non recursive
-function strToObj(str: string) {
-  const obj = {};
-  if (str && typeof str === "string") {
-    const objStr = str.match(/\{(.)+\}/g);
-    eval("obj =" + objStr);
-  }
-  return obj;
-}
-
-function getArrayOrError(value: string) {
-  try {
-    if (value.startsWith("[") && value.endsWith("]")) {
-      const sliced = value.slice(1, value.length - 1);
-      return sliced;
-    }
-    const array = Array.from(value.split(","));
-    return array.toString();
-  } catch (error: any) {
-    alert("array is not correct");
-    return "";
   }
 }
 
@@ -385,6 +344,30 @@ function setStyle(elem: HTMLElement, target: HTMLElement) {
   elem.style.top = coords.top + "px";
   elem.style.zIndex = "2";
   elem.style.background = "white";
+}
+
+export function getTypeOfValue(value: any) {
+  if (typeof value === "boolean") {
+    return "boolean";
+  }
+  if (typeof value === "number") {
+    return "number";
+  }
+  if (typeof value === "string") {
+    return "string";
+  }
+  if (Array.isArray(value)) {
+    return "array";
+  }
+  if (value === undefined) {
+    return "undefined";
+  }
+  if (value === null) {
+    return "null";
+  }
+  if (typeof value === "object") {
+    return "object";
+  }
 }
 
 interface DataProps {

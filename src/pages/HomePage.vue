@@ -10,7 +10,7 @@ import { JsonViewer } from "@/utils/json";
 
 export default defineComponent({
   methods: {
-    upload() {
+    upload(): Promise<unknown> {
       return new Promise((resolve, reject) => {
         try {
           const response = fetch(
@@ -31,7 +31,6 @@ export default defineComponent({
       .then((textJson: any) => {
         const jsonNode = new JsonViewer();
         (this.$refs.json as any).append(jsonNode.init(textJson));
-
         // setTimeout(() => {
         //   jsonNode.destroy();
         // }, 1000);
@@ -85,14 +84,14 @@ export default defineComponent({
     color: teal;
   }
   [data-type="array"] {
-    &:not(:focus) {
-      &::before {
-        content: "[";
-      }
-      &::after {
-        content: "]";
-      }
-    }
+    // &:not(:focus) {
+    //   &::before {
+    //     content: "[";
+    //   }
+    //   &::after {
+    //     content: "]";
+    //   }
+    // }
     color: red;
   }
   [data-type="object"] {
