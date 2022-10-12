@@ -1,13 +1,5 @@
-# simple json viewer and editor
-Сомнительная первая итерация для просмотра json
-
-## Description
-  - node 16.13.1
-  - need extensions: vetur (maybe volar), eslint, path-autocomplete \ path-intellisense
-
-## Future todo
-1. ~~add .env~~
-2. preload fonts
+# simple json editor
+Простой редактор json
 
 ## Project setup
 ```
