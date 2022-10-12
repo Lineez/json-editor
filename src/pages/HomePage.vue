@@ -26,11 +26,11 @@ export default defineComponent({
   mounted() {
     this.upload()
       .then((response: any) => {
-        return response.text();
+        return response.json();
       })
-      .then((textJson: any) => {
+      .then((json: any) => {
         const jsonNode = new JsonViewer();
-        (this.$refs.json as any).append(jsonNode.init(textJson));
+        (this.$refs.json as any).append(jsonNode.init(json));
         // setTimeout(() => {
         //   jsonNode.destroy();
         // }, 1000);

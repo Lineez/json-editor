@@ -12,6 +12,9 @@ describe("typeof getter", () => {
   test("test return string", () => {
     expect(getTypeOfValue("test")).toBe("string");
   });
+  test("empty string return string", () => {
+    expect(getTypeOfValue("")).toBe("string");
+  });
   test("null return null", () => {
     expect(getTypeOfValue(null)).toBe("null");
   });

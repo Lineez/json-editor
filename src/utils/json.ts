@@ -1,18 +1,3 @@
-declare global {
-  interface Array<T> {
-    toJsonString(arr: T): string;
-  }
-  interface ArrayConstructor {
-    toJsonString(arr: any[]): string;
-  }
-}
-
-Object.defineProperty(Array.prototype, "toJsonString", {
-  value: function (): string {
-    return `[${this}]`;
-  },
-});
-
 interface SelectOption {
   name: string;
   value: string;
@@ -31,8 +16,7 @@ export class JsonViewer {
   constructor() {
     //
   }
-  public init(textJson: string): HTMLElement {
-    const json = this.getJsonOrError(textJson);
+  public init(json: string): HTMLElement {
     const generate = this.generate(json);
 
     generate.addEventListener("click", this.clickHandler.bind(this));
@@ -44,7 +28,7 @@ export class JsonViewer {
     return generate;
   }
 
-  private generate(object: any) {
+  private generate(object: string): HTMLElement {
     const container = NodeGen.createNode({
       nodeName: "div",
     });
@@ -69,7 +53,7 @@ export class JsonViewer {
       rowNode.append(keyNode);
 
       // value node
-      const valueNodeOptions: any = {
+      const valueNodeOptions: createNodeOptions = {
         nodeName: "div",
         content: `${value}`,
         // classes: ["value"],
@@ -108,20 +92,6 @@ export class JsonViewer {
     }
 
     return container;
-  }
-
-  private getJsonOrError(json: any): void {
-    try {
-      const j = JSON.parse(json);
-      // TODO remove this
-      j.array = [1, 2, 3];
-      j.boolean = false;
-      j.null = null;
-
-      return j;
-    } catch (error: any) {
-      throw Error(error);
-    }
   }
 
   private focusOutHandler(e: FocusEvent) {
@@ -165,7 +135,6 @@ export class JsonViewer {
     ) as HTMLDivElement;
     const oldType = valueNode.dataset.type;
 
-    console.log("oldType", oldType);
     if (oldType === "boolean") {
       valueNode.setAttribute("contenteditable", "true");
     }
@@ -214,7 +183,6 @@ export class JsonViewer {
     // обрабатываем boolean
     if (target.dataset.type === "boolean") {
       if (target.textContent) {
-        console.log(getValueOrInput(target.textContent));
         target.textContent = String(!getValueOrInput(target.textContent));
       }
       return;
@@ -346,7 +314,8 @@ function setStyle(elem: HTMLElement, target: HTMLElement) {
   elem.style.background = "white";
 }
 
-export function getTypeOfValue(value: any) {
+// тут мы реально можем принимать любое значение
+export function getTypeOfValue(value: any): string {
   if (typeof value === "boolean") {
     return "boolean";
   }
@@ -368,20 +337,24 @@ export function getTypeOfValue(value: any) {
   if (typeof value === "object") {
     return "object";
   }
+  // ts fallback remove if use js
+  return "";
 }
 
 interface DataProps {
   [key: string]: string;
 }
 
+interface createNodeOptions {
+  nodeName: keyof HTMLElementTagNameMap;
+  content?: string;
+  classes?: string[];
+  dataProps?: DataProps;
+  value?: string;
+}
+
 class NodeGen {
-  static createNode(options: {
-    nodeName: keyof HTMLElementTagNameMap;
-    content?: string;
-    classes?: string[];
-    dataProps?: DataProps;
-    value?: string;
-  }) {
+  static createNode(options: createNodeOptions) {
     const node = document.createElement(options.nodeName) as HTMLElement;
     if (options.content) {
       node.textContent = options.content;
