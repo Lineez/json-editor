@@ -1,6 +1,20 @@
 <template>
   <main>
-    <div class="json" ref="json"></div>
+    <div v-if="!this.$options.myJson" class="json" ref="json"></div>
+    <button
+      class="btn"
+      title="method destroy all listeners and DOM element"
+      @click="this.$options.myJson.destroy()"
+    >
+      Destroy
+    </button>
+    <button
+      class="btn"
+      title="method get json as object"
+      @click="showJSON(this.$options.myJson.getJSON())"
+    >
+      getJSON (show in alert)
+    </button>
   </main>
 </template>
 
@@ -22,6 +36,9 @@ export default defineComponent({
         }
       });
     },
+    showJSON(str: string): void {
+      alert(JSON.stringify(str));
+    },
   },
   mounted() {
     this.upload()
@@ -29,11 +46,8 @@ export default defineComponent({
         return response.json();
       })
       .then((json: any) => {
-        const jsonNode = new JsonViewer();
-        (this.$refs.json as any).append(jsonNode.init(json));
-        // setTimeout(() => {
-        //   jsonNode.destroy();
-        // }, 1000);
+        this.$options.myJson = new JsonViewer();
+        (this.$refs.json as any).append(this.$options.myJson.init(json));
       });
   },
 });
@@ -122,5 +136,13 @@ export default defineComponent({
   [data-type="null"] {
     color: gray;
   }
+}
+.btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 30px;
+  padding: 0 10px;
+  border: 1px solid teal;
 }
 </style>

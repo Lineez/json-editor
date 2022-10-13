@@ -3,11 +3,6 @@ interface SelectOption {
   value: string;
 }
 
-interface SelectGroupOption {
-  label: string;
-  options: SelectOption[];
-}
-
 export class JsonViewer {
   private jsonViewer: any; // result node tree
   private select: any; // context menu
@@ -20,6 +15,7 @@ export class JsonViewer {
     const generate = this.generate(json);
 
     generate.addEventListener("click", this.clickHandler.bind(this));
+    generate.addEventListener("contextmenu", this.ctxMenuHandler.bind(this));
     // поскольку blur не всплывает, используем focusout
     generate.addEventListener("focusout", this.focusOutHandler.bind(this));
     generate.addEventListener("change", this.selectHandler.bind(this));
@@ -75,14 +71,8 @@ export class JsonViewer {
         valueNodeOptions.dataProps = { "data-type": type };
       }
 
-      // valueNodeOptions.dataProps = {
-      //   ...valueNodeOptions.dataProps,
-      //   "data-value": "",
-      // };
       const valueNode = NodeGen.createNode(valueNodeOptions);
-      if (type !== "boolean") {
-        valueNode.setAttribute("contenteditable", "true");
-      }
+
       rowNode.append(valueNode);
 
       // push row node
@@ -96,14 +86,18 @@ export class JsonViewer {
     const target = e.target as HTMLElement;
     if (target.tagName === "SELECT") return;
 
+    // удаляем атрибут ,чтобы не было конфликта с contextmenu
+    if (target.hasAttribute("contenteditable")) {
+      target.removeAttribute("contenteditable");
+    }
+
+    // если мы изменяем имя свойства, то доп логика нам не нужна
+    if (target.hasAttribute("data-property")) return;
+
     const tempValue = target.textContent || "";
     // пустую строку приводим к null
     let newValue = tempValue !== "" ? getValueOrInput(tempValue) : null;
     const newType = getTypeOfValue(newValue);
-
-    if (newType === "boolean") {
-      target.removeAttribute("contenteditable");
-    }
 
     if (newType === "object") {
       const nodes = this.generate(newValue);
@@ -181,6 +175,7 @@ export class JsonViewer {
 
   private clickHandler(e: Event) {
     const target = e.target as HTMLElement;
+
     // переключение видимости обьекта (свернуть/развернуть)
     if (target.dataset.type === "object") {
       target.classList.toggle("hide");
@@ -194,6 +189,19 @@ export class JsonViewer {
       }
       return;
     }
+
+    if (
+      target.hasAttribute("data-type") ||
+      target.hasAttribute("data-property")
+    ) {
+      target.setAttribute("contenteditable", "true");
+      target.focus();
+    }
+  }
+
+  private ctxMenuHandler(e: Event) {
+    e.preventDefault();
+    const target = e.target as HTMLElement;
 
     // Показать контекстное меню
     if (target.hasAttribute("data-property")) {
@@ -209,7 +217,7 @@ export class JsonViewer {
   // будем генерировать меню для каждого пункта, чтобы иметь возможность гибкой настройки
   private getContextMenu(
     e: Event,
-    options: Array<SelectOption | SelectGroupOption> = [
+    options: Array<SelectOption> = [
       {
         name: "Выберите действие",
         value: "",
@@ -232,34 +240,13 @@ export class JsonViewer {
       nodeName: "select",
     });
 
-    // вынести
-    const optionsNodes = options.map(
-      (option: SelectOption | SelectGroupOption) => {
-        if ("label" in option) {
-          const group = NodeGen.createNode({
-            nodeName: "optgroup",
-          }) as HTMLOptGroupElement;
-          group.label = option.label;
-
-          const options = option.options.map((o: SelectOption) => {
-            return NodeGen.createNode({
-              nodeName: "option",
-              content: o.name,
-              value: o.value,
-            });
-          });
-
-          group.append(...options);
-          return group;
-        }
-
-        return NodeGen.createNode({
-          nodeName: "option",
-          content: option.name,
-          value: option.value,
-        });
-      }
-    );
+    const optionsNodes = options.map((option: SelectOption) => {
+      return NodeGen.createNode({
+        nodeName: "option",
+        content: option.name,
+        value: option.value,
+      });
+    });
 
     menuNode.append(...optionsNodes);
 
@@ -271,9 +258,40 @@ export class JsonViewer {
 
   public destroy(): void {
     this.jsonViewer.removeEventListener("click", this.clickHandler);
+    this.jsonViewer.removeEventListener("contextmenu", this.ctxMenuHandler);
     this.jsonViewer.removeEventListener("focusout", this.focusOutHandler);
     this.jsonViewer.removeEventListener("change", this.selectHandler);
     this.jsonViewer.remove();
+  }
+
+  public getJSON() {
+    const parent = this.jsonViewer;
+    const result: any = {};
+
+    for (const node of parent.children) {
+      if (node.children[1].dataset.type === "object") {
+        result[node.children[0].textContent] = nodeParse(
+          node.children[1].children
+        );
+      } else {
+        result[node.children[0].textContent] = getValueOrInput(
+          node.children[1].textContent
+        );
+      }
+    }
+    return result;
+
+    function nodeParse(nodes: any) {
+      const result: any = {};
+
+      for (const node of nodes) {
+        result[node.children[0].textContent] = getValueOrInput(
+          node.children[1].textContent
+        );
+      }
+
+      return result;
+    }
   }
 
   private getTargetNode(e: Event): Element | null {
