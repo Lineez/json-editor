@@ -341,29 +341,14 @@ function setStyle(elem: HTMLElement, target: HTMLElement) {
 
 // тут мы реально можем принимать любое значение
 export function getTypeOfValue(value: any): string {
-  if (typeof value === "boolean") {
-    return "boolean";
-  }
-  if (typeof value === "number") {
-    return "number";
-  }
-  if (typeof value === "string") {
-    return "string";
+  if (value === null) {
+    return "null";
   }
   if (Array.isArray(value)) {
     return "array";
   }
-  if (value === undefined) {
-    return "undefined";
-  }
-  if (value === null) {
-    return "null";
-  }
-  if (typeof value === "object") {
-    return "object";
-  }
-  // ts fallback remove if use js
-  return "";
+
+  return typeof value;
 }
 
 interface DataProps {
