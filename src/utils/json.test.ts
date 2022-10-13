@@ -27,6 +27,15 @@ describe("typeof getter", () => {
   test("[] return array", () => {
     expect(getTypeOfValue([])).toBe("array");
   });
+  test("BigInt(123e10) return bigint", () => {
+    expect(getTypeOfValue(BigInt(123e10))).toBe("bigint");
+  });
+  test("Symbol('id') return symbol", () => {
+    expect(getTypeOfValue(Symbol("id"))).toBe("symbol");
+  });
+  test("'test' function return function", () => {
+    expect(getTypeOfValue(test)).toBe("function");
+  });
 });
 
 // парсим
