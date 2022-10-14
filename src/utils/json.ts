@@ -266,11 +266,16 @@ export class JsonViewer {
 
   public getJSON() {
     const parent = this.jsonViewer;
+
+    return this.nodeParse(parent.children);
+  }
+
+  private nodeParse(nodes: any) {
     const result: any = {};
 
-    for (const node of parent.children) {
+    for (const node of nodes) {
       if (node.children[1].dataset.type === "object") {
-        result[node.children[0].textContent] = nodeParse(
+        result[node.children[0].textContent] = this.nodeParse(
           node.children[1].children
         );
       } else {
@@ -279,19 +284,8 @@ export class JsonViewer {
         );
       }
     }
+
     return result;
-
-    function nodeParse(nodes: any) {
-      const result: any = {};
-
-      for (const node of nodes) {
-        result[node.children[0].textContent] = getValueOrInput(
-          node.children[1].textContent
-        );
-      }
-
-      return result;
-    }
   }
 
   private getTargetNode(e: Event): Element | null {
