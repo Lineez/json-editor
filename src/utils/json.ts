@@ -4,9 +4,9 @@ interface SelectOption {
 }
 
 export class JsonViewer {
-  private jsonViewer: any; // result node tree
-  private select: any; // context menu
-  private target: any; // target selected node
+  private jsonViewer: HTMLElement | null = null; // result node tree
+  private select: HTMLElement | null = null; // context menu
+  private target: HTMLElement | null = null; // target selected node
 
   constructor() {
     //
@@ -122,7 +122,7 @@ export class JsonViewer {
 
   private selectHandler(e: Event) {
     const target = e.target as HTMLSelectElement;
-    const valueNode = this.target.querySelector(
+    const valueNode = this.target?.querySelector(
       "[data-type]"
     ) as HTMLDivElement;
     const oldType = valueNode.dataset.type;
@@ -132,7 +132,7 @@ export class JsonViewer {
     }
 
     if (target.value === "delete") {
-      this.target.remove();
+      this.target?.remove();
     }
 
     if (target.value === "change") {
@@ -163,14 +163,14 @@ export class JsonViewer {
           }
 
           const nodes = this.generate(normalizedInput);
-          this.target.after(nodes.children[0]);
+          this.target?.after(nodes.children[0]);
         } catch (error) {
           alert(error);
         }
       }
     }
 
-    this.select.remove();
+    this.select?.remove();
   }
 
   private clickHandler(e: Event) {
@@ -205,12 +205,12 @@ export class JsonViewer {
 
     // Показать контекстное меню
     if (target.hasAttribute("data-property")) {
-      const select = this.jsonViewer.querySelector("select");
+      const select = this.jsonViewer?.querySelector("select");
       if (select) select.remove();
       const contextMenu = this.getContextMenu(e);
       this.target = this.getTargetNode(e);
       this.select = contextMenu;
-      this.jsonViewer.append(contextMenu);
+      this.jsonViewer?.append(contextMenu);
     }
   }
 
@@ -257,6 +257,7 @@ export class JsonViewer {
   }
 
   public destroy(): void {
+    if (!this.jsonViewer) return;
     this.jsonViewer.removeEventListener("click", this.clickHandler);
     this.jsonViewer.removeEventListener("contextmenu", this.ctxMenuHandler);
     this.jsonViewer.removeEventListener("focusout", this.focusOutHandler);
@@ -267,20 +268,23 @@ export class JsonViewer {
   public getJSON() {
     const parent = this.jsonViewer;
 
-    return this.nodeParse(parent.children);
+    return this.nodeParse(parent?.children as unknown as HTMLElement[]);
   }
 
-  private nodeParse(nodes: any) {
-    const result: any = {};
+  private nodeParse(nodes: HTMLElement[]) {
+    const result: Record<string, unknown> = {};
 
     for (const node of nodes) {
-      if (node.children[1].dataset.type === "object") {
-        result[node.children[0].textContent] = this.nodeParse(
-          node.children[1].children
+      const key = node.children[0] as HTMLElement;
+      const value = node.children[1] as HTMLElement;
+
+      if (value.dataset.type === "object") {
+        result[key.textContent as string] = this.nodeParse(
+          value.children as unknown as HTMLElement[]
         );
       } else {
-        result[node.children[0].textContent] = getValueOrInput(
-          node.children[1].textContent
+        result[key.textContent as string] = getValueOrInput(
+          value.textContent as string
         );
       }
     }
@@ -288,9 +292,9 @@ export class JsonViewer {
     return result;
   }
 
-  private getTargetNode(e: Event): Element | null {
-    const t = e.target as HTMLDivElement;
-    const targetNode = t.closest(".node");
+  private getTargetNode(e: Event): HTMLElement | null {
+    const t = e.target as HTMLElement;
+    const targetNode = t.closest(".node") as HTMLElement;
 
     return targetNode;
   }
